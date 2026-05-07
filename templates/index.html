@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI 检测阵列平台</title>
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body class="viewer-body matrix-body">
+  <div class="matrix-shell">
+    <header class="matrix-header">
+      <h1>多维生物特征实时深伪检测平台</h1>
+    </header>
+
+    <div class="matrix-toolbar">
+      <button id="startBtn" class="primary-btn">开始摄像头检测</button>
+      <button id="stopBtn" class="ghost-btn" disabled>停止</button>
+      <label class="ghost-btn upload-btn" for="videoInput">上传短视频</label>
+      <input id="videoInput" type="file" accept="video/*" hidden>
+      <label class="ghost-btn upload-btn" for="imageInput">上传图片</label>
+      <input id="imageInput" type="file" accept="image/*" hidden>
+      <a href="/admin" class="text-link strong-link">管理员页面</a>
+      <span id="sessionLabel" class="session-pill">会话未开始</span>
+    </div>
+
+    <main class="matrix-layout">
+      <aside class="tech-panel">
+        <div class="section-title">技术选型</div>
+        <div class="stack-card">
+          <h3>CNN 模型（单帧特征）</h3>
+          <p>EfficientNet / ResNet 思路</p>
+          <div class="stack-visual face-visual">图像纹理、边缘伪影、单帧压缩痕迹</div>
+        </div>
+        <div class="stack-card">
+          <h3>Transformer 模型（时序特征）</h3>
+          <p>ViT / TimeSformer 思路</p>
+          <div class="stack-visual blocks-visual">
+            <span></span><span></span><span></span><span></span><span></span>
+          </div>
+        </div>
+        <div class="stack-card helper-card">
+          <h3>其他辅助模型</h3>
+          <ul class="helper-list">
+            <li>rPPG 特征分析模型</li>
+            <li>几何结构分析模型</li>
+            <li>SyncNet 同步模型</li>
+            <li>光流时序分析模型</li>
+          </ul>
+        </div>
+      </aside>
+
+      <section class="matrix-main">
+        <div class="stage-card">
+          <div class="section-title">1. 输入多模态特征</div>
+          <div class="feature-grid">
+            <div class="feature-card">
+              <span>生理特征</span>
+              <strong id="featurePhysiology">0.00</strong>
+              <small>rPPG / 额头节律</small>
+            </div>
+            <div class="feature-card">
+              <span>几何特征</span>
+              <strong id="featureGeometry">0.00</strong>
+              <small>人脸框 / 关键结构</small>
+            </div>
+            <div class="feature-card">
+              <span>音视频特征</span>
+              <strong id="featureAudioVisual">0.00</strong>
+              <small>嘴动与音频变化</small>
+            </div>
+            <div class="feature-card">
+              <span>图像特征</span>
+              <strong id="featureImage">0.00</strong>
+              <small>纹理 / 压缩 / 伪影</small>
+            </div>
+            <div class="feature-card">
+              <span>时序特征</span>
+              <strong id="featureTemporal">0.00</strong>
+              <small>光流 / 连续运动</small>
+            </div>
+          </div>
+        </div>
+
+        <div class="stage-card">
+          <div class="section-title">2. 各模型独立判断真假</div>
+          <div class="model-grid" id="modelScoreGrid"></div>
+        </div>
+
+        <div class="stage-card">
+          <div class="section-title">3. 输出置信度分数（统一归一化）</div>
+          <div class="confidence-row" id="confidenceRow"></div>
+          <div class="score-summary">
+            <div class="score-card large-score">
+              <span>综合风险</span>
+              <strong id="riskScoreValue">0%</strong>
+              <small id="riskText">等待检测输入</small>
+            </div>
+            <div class="summary-mini">
+              <div class="detail-card">
+                <span>最终等级</span>
+                <strong id="riskBadgeText">LOW</strong>
+              </div>
+              <div class="detail-card">
+                <span>当前模式</span>
+                <strong id="modeValue">待输入</strong>
+              </div>
+              <div class="detail-card">
+                <span>心率代理</span>
+                <strong id="heartRateValue">-- bpm</strong>
+              </div>
+              <div class="detail-card">
+                <span>同步得分</span>
+                <strong id="syncValue">--</strong>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="preview-stage">
+          <div class="panel-head">
+            <div>
+              <h2>检测预览</h2>
+              <p class="subtle-line">推荐上传 3 到 6 秒、正脸、带语音的短视频；图片模式用于单帧展示。</p>
+            </div>
+            <div class="risk-pill risk-low" id="riskBadge">LOW RISK</div>
+          </div>
+          <div class="camera-frame matrix-frame">
+            <video id="video" autoplay muted playsinline></video>
+            <img id="previewImage" alt="上传图片预览">
+            <canvas id="overlay"></canvas>
+            <div class="empty-state" id="emptyState">上传图片、短视频，或开启摄像头后在这里查看多模型检测预览</div>
+          </div>
+          <div class="detail-grid matrix-detail-grid">
+            <div class="detail-card">
+              <span>音频能量</span>
+              <strong id="audioLevelValue">0.00</strong>
+            </div>
+            <div class="detail-card">
+              <span>MFCC相似度</span>
+              <strong id="mfccValue">0.00</strong>
+            </div>
+            <div class="detail-card">
+              <span>边缘密度</span>
+              <strong id="edgeValue">0.00</strong>
+            </div>
+            <div class="detail-card">
+              <span>光流幅度</span>
+              <strong id="flowMagValue">0.00</strong>
+            </div>
+            <div class="detail-card">
+              <span>光流差异</span>
+              <strong id="flowInconValue">0.00</strong>
+            </div>
+            <div class="detail-card">
+              <span>TCN 分数</span>
+              <strong id="tcnValue">0.00</strong>
+            </div>
+            <div class="detail-card">
+              <span>关键点</span>
+              <strong id="landmarkValue">--</strong>
+            </div>
+            <div class="detail-card">
+              <span>抖动强度</span>
+              <strong id="motionValue">0.00</strong>
+            </div>
+            <div class="detail-card">
+              <span>人脸检测</span>
+              <strong id="faceDetectValue">否</strong>
+            </div>
+            <div class="detail-card">
+              <span>采样频率</span>
+              <strong id="latencyLabel">0 FPS</strong>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <canvas id="captureCanvas" width="640" height="480" class="hidden-canvas"></canvas>
+  <script src="/static/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI 检测阵列后台</title>
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body class="admin-body matrix-body">
+  <div class="admin-shell matrix-admin-shell">
+    <header class="matrix-header admin-matrix-header">
+      <div class="matrix-badge">Admin Console</div>
+      <h1>AI 检测阵列后台</h1>
+      <p>查看独立模型分数、最近检测记录和融合权重，按多模型阵列方式管理项目。</p>
+      <a href="/" class="text-link strong-link">返回检测页</a>
+    </header>
+
+    <section class="summary-grid">
+      <div class="summary-card">
+        <span>总检测次数</span>
+        <strong id="totalLogs">0</strong>
+      </div>
+      <div class="summary-card">
+        <span>平均风险值</span>
+        <strong id="avgRisk">0.00</strong>
+      </div>
+      <div class="summary-card">
+        <span>高风险条目</span>
+        <strong id="highCount">0</strong>
+      </div>
+      <div class="summary-card">
+        <span>最近会话数</span>
+        <strong id="sessionCount">0</strong>
+      </div>
+    </section>
+
+    <section class="admin-main matrix-admin-main">
+      <div class="config-panel">
+        <div class="panel-head">
+          <h2>独立模型融合权重</h2>
+          <button id="saveConfigBtn" class="primary-btn">保存配置</button>
+        </div>
+        <div class="slider-group" id="weightSliders"></div>
+        <div class="threshold-row">
+          <label>低风险阈值 <input type="range" min="0.1" max="0.8" step="0.01" id="lowThreshold"></label>
+          <strong id="lowThresholdValue">0.35</strong>
+        </div>
+        <div class="threshold-row">
+          <label>中风险阈值 <input type="range" min="0.2" max="0.95" step="0.01" id="mediumThreshold"></label>
+          <strong id="mediumThresholdValue">0.62</strong>
+        </div>
+      </div>
+
+      <div class="table-panel">
+        <div class="panel-head">
+          <h2>模型平均分数</h2>
+          <button id="refreshBtn" class="ghost-btn">刷新</button>
+        </div>
+        <div class="model-grid admin-model-grid" id="modelAverageGrid"></div>
+      </div>
+    </section>
+
+    <section class="table-panel">
+      <div class="panel-head">
+        <h2>最近会话</h2>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>会话ID</th>
+            <th>标签</th>
+            <th>最后风险</th>
+            <th>级别</th>
+            <th>样本数</th>
+            <th>操作</th>
+          </tr>
+        </thead>
+        <tbody id="sessionsTable"></tbody>
+      </table>
+    </section>
+
+    <section class="table-panel">
+      <div class="panel-head">
+        <h2>最近模型判断记录</h2>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>时间</th>
+            <th>会话</th>
+            <th>风险</th>
+            <th>CNN</th>
+            <th>ViT</th>
+            <th>SyncNet</th>
+            <th>rPPG</th>
+            <th>光流</th>
+            <th>几何</th>
+          </tr>
+        </thead>
+        <tbody id="logsTable"></tbody>
+      </table>
+    </section>
+  </div>
+
+  <script src="/static/admin.js"></script>
+</body>
+</html>
