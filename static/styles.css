@@ -386,6 +386,10 @@ h2 {
   color: white;
 }
 
+.alt-btn {
+  background: linear-gradient(135deg, #2048b7, #6f4cff);
+}
+
 .ghost-btn {
   background: rgba(13, 124, 102, 0.08);
   color: var(--accent);

@@ -14,6 +14,7 @@
 
     <div class="matrix-toolbar">
       <button id="startBtn" class="primary-btn">开始摄像头检测</button>
+      <button id="screenBtn" class="primary-btn alt-btn">检测屏幕/视频通话</button>
       <button id="stopBtn" class="ghost-btn" disabled>停止</button>
       <label class="ghost-btn upload-btn" for="videoInput">上传短视频</label>
       <input id="videoInput" type="file" accept="video/*" hidden>
@@ -166,6 +167,14 @@
             <div class="detail-card">
               <span>人脸检测</span>
               <strong id="faceDetectValue">否</strong>
+            </div>
+            <div class="detail-card">
+              <span>真人置信度</span>
+              <strong id="realScoreValue">--</strong>
+            </div>
+            <div class="detail-card">
+              <span>采集来源</span>
+              <strong id="sourceModeValue">待输入</strong>
             </div>
             <div class="detail-card">
               <span>采样频率</span>

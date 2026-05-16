@@ -6,6 +6,7 @@ const captureCanvas = document.getElementById("captureCanvas");
 const captureCtx = captureCanvas.getContext("2d");
 
 const startBtn = document.getElementById("startBtn");
+const screenBtn = document.getElementById("screenBtn");
 const stopBtn = document.getElementById("stopBtn");
 const imageInput = document.getElementById("imageInput");
 const videoInput = document.getElementById("videoInput");
@@ -29,6 +30,7 @@ let sessionId = null;
 let loopTimer = null;
 let frameCounter = 0;
 let lastTick = performance.now();
+let captureSource = "idle";
 
 async function safeJson(url, options) {
   const response = await fetch(url, options);
@@ -61,6 +63,11 @@ function textForLevel(level) {
   return "低风险，当前相对稳定";
 }
 
+function textForRealScore(realScore) {
+  if (realScore === null || realScore === undefined || Number.isNaN(Number(realScore))) return "--";
+  return `${(Number(realScore) * 100).toFixed(1)}%`;
+}
+
 function renderModelPlaceholders() {
   const grid = document.getElementById("modelScoreGrid");
   const confidenceRow = document.getElementById("confidenceRow");
@@ -82,6 +89,11 @@ function renderModelPlaceholders() {
 
 function setStopState(enabled) {
   stopBtn.disabled = !enabled;
+}
+
+function setStartState(disabled) {
+  startBtn.disabled = disabled;
+  screenBtn.disabled = disabled;
 }
 
 function showCameraPreview() {
@@ -182,6 +194,7 @@ function updateUI(result, audioLevel, fps) {
   const score = result.risk_score || 0;
   const level = result.risk_level || "LOW";
   const details = result.details || {};
+  const cnnMeta = details.cnn_meta || {};
   const moduleScores = result.module_scores || {};
   const modelScores = result.model_scores || {};
   const normalizedScores = result.normalized_scores || modelScores;
@@ -209,6 +222,8 @@ function updateUI(result, audioLevel, fps) {
   document.getElementById("edgeValue").textContent = Number(details.edge_density || 0).toFixed(2);
   document.getElementById("motionValue").textContent = Number(details.bbox_jitter || 0).toFixed(2);
   document.getElementById("faceDetectValue").textContent = details.face_detected ? "是" : "否";
+  document.getElementById("realScoreValue").textContent = textForRealScore(cnnMeta.real_score);
+  document.getElementById("sourceModeValue").textContent = captureSource === "screen" ? "屏幕画面" : captureSource === "camera" ? "摄像头" : result.mode === "video" ? "上传视频" : "上传图片";
   document.getElementById("latencyLabel").textContent = `${fps.toFixed(1)} FPS`;
 
   drawOverlay(details.face_box, level, score, sourceWidth, sourceHeight);
@@ -241,6 +256,34 @@ async function analyzeFrame() {
     })
   });
   updateUI(result, audioLevel, Math.max(fps, 8));
+}
+
+function setupAudioAnalysis(stream) {
+  const audioTracks = stream.getAudioTracks();
+  if (!audioTracks.length) {
+    analyser = null;
+    audioDataArray = null;
+    return;
+  }
+  audioContext = new (window.AudioContext || window.webkitAudioContext)();
+  const audioSource = audioContext.createMediaStreamSource(stream);
+  analyser = audioContext.createAnalyser();
+  analyser.fftSize = 1024;
+  audioDataArray = new Uint8Array(analyser.frequencyBinCount);
+  audioSource.connect(analyser);
+}
+
+function beginLiveAnalysis(statusText) {
+  setStartState(true);
+  showCameraPreview();
+  setStatus(statusText);
+
+  loopTimer = setInterval(() => {
+    analyzeFrame().catch((error) => {
+      console.error(error);
+      setStatus(error.message || "分析请求失败，请检查后端服务");
+    });
+  }, 1000);
 }
 
 async function uploadVideo(file) {
@@ -322,23 +365,42 @@ async function start() {
   video.srcObject = mediaStream;
   await video.play().catch(() => {});
 
-  audioContext = new (window.AudioContext || window.webkitAudioContext)();
-  const audioSource = audioContext.createMediaStreamSource(mediaStream);
-  analyser = audioContext.createAnalyser();
-  analyser.fftSize = 1024;
-  audioDataArray = new Uint8Array(analyser.frequencyBinCount);
-  audioSource.connect(analyser);
+  captureSource = "camera";
+  setupAudioAnalysis(mediaStream);
+  beginLiveAnalysis("摄像头已启动，正在实时判断画面中的人脸真实性");
+}
 
-  startBtn.disabled = true;
-  showCameraPreview();
-  setStatus("摄像头已启动，当前按轻量多模型阵列方式分析");
+async function startScreenCapture() {
+  await ensureSession();
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) {
+    setStatus("当前浏览器不支持屏幕采集。请使用 Chrome/Edge，并通过 HTTPS 或本机 localhost 访问。 ");
+    return;
+  }
 
-  loopTimer = setInterval(() => {
-    analyzeFrame().catch((error) => {
-      console.error(error);
-      setStatus(error.message || "分析请求失败，请检查后端服务");
+  try {
+    mediaStream = await navigator.mediaDevices.getDisplayMedia({
+      video: { frameRate: { ideal: 12, max: 15 } },
+      audio: true
     });
-  }, 1000);
+  } catch (error) {
+    console.error(error);
+    setStatus(error && error.name === "NotAllowedError" ? "屏幕共享权限被拒绝，请重新选择要检测的窗口或屏幕。" : `屏幕采集失败：${error && error.message ? error.message : "未知错误"}`);
+    showEmptyState();
+    return;
+  }
+
+  const [videoTrack] = mediaStream.getVideoTracks();
+  if (videoTrack) {
+    videoTrack.addEventListener("ended", stop);
+  }
+
+  video.src = "";
+  video.srcObject = mediaStream;
+  await video.play().catch(() => {});
+
+  captureSource = "screen";
+  setupAudioAnalysis(mediaStream);
+  beginLiveAnalysis("屏幕检测已启动：请选择视频通话窗口、浏览器标签页或任意含人脸的画面。系统会自动框选人脸并判断真实性。 ");
 }
 
 function stop() {
@@ -357,7 +419,8 @@ function stop() {
   video.pause();
   video.srcObject = null;
   video.src = "";
-  startBtn.disabled = false;
+  captureSource = "idle";
+  setStartState(false);
   showEmptyState();
 }
 
@@ -404,6 +467,12 @@ startBtn.addEventListener("click", () => {
   start().catch((error) => {
     console.error(error);
     setStatus(error.message || "摄像头启动失败");
+  });
+});
+screenBtn.addEventListener("click", () => {
+  startScreenCapture().catch((error) => {
+    console.error(error);
+    setStatus(error.message || "屏幕检测启动失败");
   });
 });
 stopBtn.addEventListener("click", stop);
