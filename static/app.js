@@ -87,6 +87,30 @@ function renderModelPlaceholders() {
   `).join("");
 }
 
+function resetMetrics() {
+  updateModelViews({}, {}, {});
+  document.getElementById("modeValue").textContent = "待输入";
+  document.getElementById("riskBadgeText").textContent = "LOW";
+  const badge = document.getElementById("riskBadge");
+  badge.className = "risk-pill risk-low";
+  badge.textContent = "LOW RISK";
+  document.getElementById("riskScoreValue").textContent = "0%";
+  document.getElementById("heartRateValue").textContent = "-- bpm";
+  document.getElementById("syncValue").textContent = "--";
+  document.getElementById("audioLevelValue").textContent = "0.00";
+  document.getElementById("mfccValue").textContent = "0.00";
+  document.getElementById("flowMagValue").textContent = "0.00";
+  document.getElementById("flowInconValue").textContent = "0.00";
+  document.getElementById("tcnValue").textContent = "0.00";
+  document.getElementById("landmarkValue").textContent = "--";
+  document.getElementById("edgeValue").textContent = "0.00";
+  document.getElementById("motionValue").textContent = "0.00";
+  document.getElementById("faceDetectValue").textContent = "否";
+  document.getElementById("realScoreValue").textContent = "--";
+  document.getElementById("sourceModeValue").textContent = "待输入";
+  document.getElementById("latencyLabel").textContent = "0 FPS";
+}
+
 function setStopState(enabled) {
   stopBtn.disabled = !enabled;
 }
@@ -120,6 +144,7 @@ function showEmptyState() {
   emptyState.style.display = "grid";
   overlay.style.display = "none";
   overlayCtx.clearRect(0, 0, overlay.width, overlay.height);
+  resetMetrics();
   setStopState(false);
 }
 

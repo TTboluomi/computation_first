@@ -1010,8 +1010,9 @@ def compute_frame_metrics(frame, state, client_audio_level, fps, audio_chunk=Non
         if len(green_signal) >= 18:
             physiology_stability, heart_rate = compute_fft_stability(green_signal, fps)
 
-    if heart_rate < 1.0 and physiology_stability > 0.49:
-        physiology_score = 0.5
+    rppg_ready = len(state["rppg_rgb"]) >= 18 and heart_rate >= 1.0
+    if not rppg_ready:
+        physiology_score = 0.15
     else:
         physiology_score = float(
             np.clip(1.0 - physiology_stability + abs(72.0 - heart_rate) / 180.0, 0.0, 1.0)
@@ -1019,7 +1020,8 @@ def compute_frame_metrics(frame, state, client_audio_level, fps, audio_chunk=Non
 
     # --- Temporal CNN score on rPPG ---
     tcn_score = 0.5
-    if len(state["pos_signal"]) >= 18:
+    tcn_ready = len(state["pos_signal"]) >= 18
+    if tcn_ready:
         tcn_score = temporal_cnn_score(list(state["pos_signal"]))
 
     # --- AV sync: mouth motion vs audio with MFCC bonus ---
@@ -1089,11 +1091,24 @@ def compute_frame_metrics(frame, state, client_audio_level, fps, audio_chunk=Non
         except Exception as exc:
             vit_meta["error"] = str(exc)
 
+    real_score = cnn_meta.get("real_score")
+    if real_score is not None:
+        real_score = clamp01(float(real_score))
+        real_risk_factor = clamp01(1.0 - real_score)
+        if real_score >= 0.70:
+            vit_score = clamp01(vit_score * (0.35 + real_risk_factor))
+            physiology_score = clamp01(physiology_score * (0.40 + real_risk_factor))
+            if not tcn_ready:
+                tcn_score = min(tcn_score, 0.20)
+        vit_meta["real_score_adjusted"] = real_score
+
+    rppg_score = clamp01((physiology_score * 0.72) + ((tcn_score if tcn_ready else 0.0) * 0.28))
+
     model_scores = {
         "cnn": cnn_score,
         "vit": vit_score,
         "syncnet": clamp01((consistency_score * 0.72) + (temporal_score * 0.18) + (motion_score * 0.10)),
-        "rppg": clamp01((physiology_score * 0.62) + (tcn_score * 0.38)),
+        "rppg": rppg_score,
         "flow": clamp01(flow_inconsistency * 0.6 + flow_magnitude * 0.25 + bbox_jitter * 0.15),
         "geometry_model": clamp01((geometry_score * 0.74) + (bbox_jitter * 0.26)),
     }
